@@ -1,0 +1,438 @@
+ <!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Mine sweeper</title>
+
+	<script src="https://cdn.jsdelivr.net/npm/vue@2"></script>
+	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+  	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  	<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.0/umd/popper.min.js"></script>
+  	<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+  	<link rel="stylesheet" type="text/css" href="./style/master.css">
+
+
+</head>
+<body>
+
+	<div id="app" class="collapse show p-2">
+
+		<!-- icon collapse input game -->
+		<div class="container-fluid-sm d-flex align-items-center justify-content-center mt-4">
+			<img v-bind:src="icon" width="24px;" style="opacity: 0.4" data-toggle="collapse" data-target=".input-game" @click="setIcon"/>
+		</div>
+
+		<!-- Input game: width, height, level, color, border color... -->
+		<div class="container-sm p-3 input-game">
+			<form class="input-data d-flex row shadow">	
+				<!-- get input width area -->		
+				<div class="form-group col-sm-3">
+					<label for="#width" class="form-label">Enter Width Area</label>
+					<input type="number" name="width" class="form-control" v-model="widthSave">
+				</div>
+
+				<!-- get input height area -->
+				<div class="form-group col-sm-3">
+					<label for="#height" >Enter Height Area</label>
+					<input type="number" name="height" class="form-control" v-model="heightSave">
+				</div>
+
+				<!-- get input select level -->
+				<div class="form-group col-sm-3">
+					<label for="sel1">Select Level:</label>
+		      		<select class="form-control" id="sel1" @change="onChange(event)" value="level">
+			       		<option>Ease</option>
+				        <option>Normal</option>
+				        <option>Hard</option>
+		      		</select>
+				</div>
+			
+				<!-- get input Amount Boom -->
+				<div class="form-group col-sm-3">
+					<label for="#height">Amount Bom</label>
+					<input type="number" name="height" class="form-control" v-model="numberBoom">
+				</div>
+
+				<!-- get input border color -->
+				<div class="form-group  col-sm-3">
+					<label for="border-input" class="form-label">Border Color</label>			
+					<input class="form-control rounded" type="color" value="#BABABB" id="border-input" style="width: 100%" @change="getBorderColor(event)">
+				</div>
+
+				<!-- get input color board-->
+				<div class="form-group col-sm-3">
+					<label for="color-input" class="form-label">Color</label>
+					<input class="form-control rounded" type="color" value="squareColor" id="color-input" style="width: 100%" @change="getcolor(event)">
+				</div>
+				<!-- get input name -->
+				<div class="form-group col-2">
+					<label for="name" class="form-label">Enter your name: </label>
+					<input type="text" name="name" class="form-control" v-model="playerName" autocomplete="off">
+				</div>
+				<!-- ô tính thời gian  -->
+				<div class="form-group col-2">
+					<label for="time" class="form-label">Time: </label>
+					<input type="text" 
+					class="form-control text-danger" 
+					name="time" 
+					v-bind:value="counter" 
+					style="background-color: white; border: none;font-family: 'ＭＳ Ｐゴシック';	"disabled>
+				</div>
+			</form>	
+				<button class="btn btn-outline-warning col-sm-2 shadow mt-2 text-light" @click="createMap" style="color: black">Create Map</button>		
+		</div>
+
+		<div class="row">
+		<!-- Game Board -->
+			<div class="map-game mt-3 col-sm-9" >		
+					<div class="areaMap ">						
+						 	<!-- render như render mảng 2 chiều -->
+							<div v-for="(row,i) in mapShow" style="margin: 0;" class="row-square">
+								<div v-for="(item,j) in row" class="square"  v-bind:style="{backgroundColor: item.bgColor, border}" @click="clicked(event,item,i,j)" @click.right="flag(item,i,j)" style="transition: 0.5s;" @dblclick="checkPlace2(event,item,i,j,heightArea,widthArea)">
+										<p id="text" v-bind:style="{opacity: item.opacity,color: item.color[item.value]}" v-if="item.checkFlag">{{item.value}}</p>
+										<p v-else>{{item.flag}}</p>
+										
+								</div>
+							</div>		
+					</div>
+			</div>
+
+			<!-- render top 10 người chơi điểm cao  -->
+			<div class="col-md-2 rank shadow pb-3" >		
+				<h1 class="display-5 text-info">Rank</h1>
+				<ul class="list-group text-dark">
+					<li class="list-group-item d-flex justify-content-between" v-for="(item,index) in player">
+							<span v-bind:class="rankColor[index]">
+								{{item.name}}
+								<img  class=""v-if="(index === 0)?true:false" src="./image/crown.png" style="width:32px;height: 32px;"/>
+							</span>
+							<span v-bind:class="rankColor[index]" v-if="(item.point < 9999)?true:false">{{item.point}}s</span>
+					</li>
+				</ul>
+			</div>
+		<div>
+	</div>
+
+
+	<!-- Thuộc tính của từng ô vuông (./Js/square.js) : active, safe --> 
+	<script type="text/javascript" src="./boards.js"></script>
+	<script type="text/javascript" src="./Js/disableMouse.js"></script>
+	<!-- script VueJS -->
+	<script type="text/javascript">
+
+
+		// khởi tạo biến newMap Quản lí đối tượng "#app" bằng VueJs
+
+		var newMap = new Vue({
+			el: "#app",
+			data: {
+				// data of app
+				widthSave: 10,  			// giá trị width thay đổi
+				heightSave: 8,  			//giá trị height thay đổi 
+				widthArea: 6,				// giá trị width thật
+				heightArea: 4,				// giá trị height thật
+				mapShow: [],				// mảng lưu các ô vuông đã được định nghĩa
+				numberBoom: 10,				// số lượng bom 
+				squareColor: "#6E6E6E", 	// màu của ô vuông 
+				color:"",				
+				border: "1px solid white",	// set thuộc tính border 
+				icon: "./image/up.png",		// địa chỉ lưu icon down, up 
+				checkIcon: false,
+				checkFisrtTurn: false,	// check click icon 
+				countEmpty: 0,
+				level: "Ease",	
+				numLevel: 0,			// dem so o trong
+				player: Array(10).fill().map(e => new playerID("")),			
+				playerName:'',	
+				counter: 0,
+				rankColor: ["text-danger","text-warning","text-secondary"]
+			},
+			methods: {
+				clicked: function(event, item,i,j) {
+								// hàm xử lí click trên các ô vuông 
+					if(item.checkFlag){						// xét ô đã có cờ chưa 
+						var numColor = item.value;
+						if (item.value === "💣"){			// xét lost
+							alert("Bùmmmm bạn đã đạp bom... mời người tiếp theo :>");
+							clearInterval(this.counterTime);
+							this.mapShow.map(i => {
+								i.map(e => {
+									if (e.value === 0) {
+										e.value = " ";
+									}
+									e.bgColor = "white";
+									e.opacity = 1;
+									e.opened = true;
+
+								})
+							})
+							this.counter = 0;
+							this.numLevel = 0;
+						}
+						item.bgColor = "white";				// set background khi đã click (alive)
+
+						if(!this.checkFisrtTurn)			// kiểm tra click đầu tiên 
+						{
+							this.checkFisrtTurn = true;
+														// tạo mảng rỗng (auto click alive)
+							this.mapShow = createTable(this.heightArea, this.widthArea,this.numberBoom,this.squareColor,i,j);
+							this.mapShow[i][j].bgColor = "white";
+							this.mapShow[i][j].opened = true;
+
+							if(this.mapShow[i][j].value === 0 ){
+								//this.countEmpty -= 1;
+								this.checkPlace(i,j,this.mapShow,this.heightArea,this.widthArea);
+								//console.log(this.mapShow[i][j]);
+							}else {
+								this.countEmpty += 1;
+								this.mapShow[i][j].opacity = 1;
+
+							}
+
+						}
+						else if(item.value === 0 && !item.opened){			// kiểm tra các click sau lần click đầu  
+							this.checkPlace(i,j,this.mapShow,this.heightArea,this.widthArea);
+							this.mapShow[i][j].opened = true;
+							//this.countEmpty = this.countEmpty + 1;
+						}else if(!this.mapShow[i][j].opened){	// thay đổi thuộc tính opened của ô phần tử ô vuông 
+							item.opacity = 1;
+							this.mapShow[i][j].opened = true;
+							this.countEmpty = this.countEmpty + 1;
+						}
+					}
+					if (this.countEmpty === (this.widthArea*this.heightArea)-this.numberBoom)  
+						this.winner();							// đếm số ô trống đã mở và kiểm tra winner 
+				},
+				createMap: function() {		
+					//tạo mapShow 
+					// khởi tạo mảng kích thước widthArea * heightArea
+					if(this.widthSave > 0 && this.heightSave > 0){
+						clearInterval(this.counterTime);
+						this.counter = 0;
+						this.widthArea = Number(this.widthSave);	// lưu giá trị width thật của bảng chơi 
+						this.heightArea = Number(this.heightSave);	// lưu giá trị height thật của bảng chơi 
+						// tạo bảng chơi kích thước width * height với các giá trị thật 
+						this.mapShow = createTable(this.heightArea, this.widthArea,0,this.squareColor,0,0);	
+						this.checkFisrtTurn = false;
+						this.countEmpty = 0;						// reset biến đếm ô trống 
+						this.counterTime = setInterval(() => {		// chạy thời gian chơi (1s)
+							this.counter+=1;
+						},1000);
+					}
+
+				},
+				onChange: function(event) { 	
+				//xử lí value chọn level khi click select
+					var level = event.target.value;
+					if (level === "Ease"){
+						this.widthSave = 10;
+						this.heightSave = 8;
+						this.numberBoom = 10;
+					};
+					if (level === "Normal") {
+						this.widthSave = 20;
+						this.heightSave = 12;
+						this.numberBoom = 30;
+					};
+					if (level === "Hard") {
+						this.widthSave = 40;
+						this.heightSave	 = 40;
+						this.numberBoom = 200;
+						
+					}
+					this.nextLevel();
+				},
+				getcolor: function (event) {
+					//getcolor from select tag
+					 this.mapShow.map(e => {			// lấy dữ liệu màu sắc của các ô chứa số 
+					 	e.map(item => {
+					 		if (item.bgColor != "white"){
+					 			item.bgColor = event.target.value;
+					 			this.squareColor = event.target.value;
+					 		}
+					 	})
+					 });
+				},
+				getBorderColor: function(event) {
+					//get value select border color
+					this.border = '1px ' + "solid "+ event.target.value ;
+				},
+				checkPlace: function (i,j,arr,r,c) {
+					// finding empty square around 
+					this.countEmpty = this.countEmpty + 1;
+					var safeArea = [
+						[i-1,j-1],	 [i-1,j],	[i-1,j+1],
+						[i,j-1],        		[i,j+1],		// các vị trí an toàn xung quanh [i][j]
+						[i+1,j-1],	 [i+1,j],	[i+1,j+1]	
+					];
+
+					safeArea.map(e => {							// duyệt mảng safeArea 
+						var a = e[0];
+						var b = e[1];
+						if (a>=0 && a<=(r-1) && b>=0 && b<=(c-1) && (arr[a][b].value !== "💣") && (arr[a][b].bgColor !== "white") && arr[a][b].checkFlag === true){
+							if (arr[a][b].value === 0 || arr[a][b].value === " ") {
+								arr[a][b].bgColor = "white";
+								arr[a][b].opened = true;
+								arr[a][b].value = " ";	// xét thuộc tính cho các ô trống an toàn 
+								this.checkPlace(a,b,arr,r,c);	
+							} else if(arr[a][b].value <= 8){
+								arr[a][b].opacity = 1;			// xét thuộc tính cho các ô số an toàn 
+								arr[a][b].bgColor = "white";	
+								arr[a][b].opened = true;
+								this.countEmpty = this.countEmpty + 1;// increase countEmpty
+							
+							}
+						} 	
+					});
+					return arr;
+				},
+				checkPlace2: function(event,item,i,j,r,c) {
+					if (this.countEmpty >= (this.widthArea*this.heightArea)-this.numberBoom)  
+						this.winner();
+					var safeArea = [
+						[i-1,j-1],	 [i-1,j],	[i-1,j+1],
+						[i,j-1],        		[i,j+1],		// các vị trí nhún xung quanh [i][j]
+						[i+1,j-1],	 [i+1,j],	[i+1,j+1]	
+					];
+					if(this.mapShow[i][j].value === this.mapShow[i][j].flagValue){
+						safeArea.map(e => {							// duyệt mảng safeArea 
+							var a = e[0];
+							var b = e[1];
+							
+							
+							if((a>=0 && a<=(r-1) && b>=0 && b<=(c-1))) {
+								// this.countEmpty += 1;
+								// if(this.mapShow[a][b].opened === true || !this.mapShow.checkFlag)
+								// 	this.countEmpty -=1;
+							if(this.mapShow[a][b].opened === false){
+								if(this.mapShow[a][b].value === 0){
+									this.checkPlace(i,j,this.mapShow,this.heightArea,this.widthArea);
+									if(this.mapShow[a][b].value === 0)
+										this.mapShow[a][b].value === " ";
+								}
+								if (this.mapShow[a][b].checkFlag){
+									if(this.mapShow[a][b].value === "💣") {
+										alert("Bùmmmm bạn đã đạp bom... mời người tiếp theo :>");
+										clearInterval(this.counterTime);
+										this.mapShow.map(i => {
+											i.map(e => {
+												if (e.value === 0) {
+													e.value = " ";
+												}
+												e.bgColor = "white";
+												e.opacity = 1;
+												e.opened = true;
+
+											})
+										})
+										this.counter = 0;
+										this.numLevel = 0;
+									}
+									this.mapShow[a][b].bgColor = "white";
+									this.mapShow[a][b].opacity = 1;
+									this.opened = true;
+									this.countEmpty += 1;
+									if(this.mapShow[a][b].value === 0)
+										this.mapShow[a][b].value === " ";
+
+								}
+							}
+						}
+							// 	if(this.mapShow[a][b].value === 0)
+							// 		this.mapShow = " ";
+							// }
+							//this.clicked2( item,a,b);
+
+						});
+					}
+				
+
+				},
+				flagValueUp: function(item,i,j,r,c) {
+					//this.countEmpty = this.countEmpty + 1;
+					var safeArea = [
+						[i-1,j-1],	 [i-1,j],	[i-1,j+1],
+						[i,j-1],        		[i,j+1],		// các vị trí nhún xung quanh [i][j]
+						[i+1,j-1],	 [i+1,j],	[i+1,j+1]	
+					];
+
+					safeArea.map(e => {							// duyệt mảng safeArea 
+						var a = e[0];
+						var b = e[1];
+						if((a>=0 && a<=(r-1) && b>=0 && b<=(c-1))) {
+							if(item.checkFlag === false) {	
+								this.mapShow[a][b].flagValue += 1;
+								console.log(item.checkFlag);
+							}
+							if(item.checkFlag === true) {
+								this.mapShow[a][b].flagValue -= 1;
+								console.log(item.checkFlag);	
+							}
+						}
+					});
+					
+				},
+				setIcon: function() {
+					// change icon collapse when clicked
+					this.checkIcon = !this.checkIcon;
+					if (!this.checkIcon) 
+						this.icon = "./image/down.png";
+					else 
+						this.icon = "./image/up.png";
+				},
+				flag: function(item,i,j) {	// hàm kiểm tra cờ 
+					if(item.opened === false){	
+						if(this.checkFisrtTurn){
+							item.checkFlag = !item.checkFlag;
+							this.flagValueUp(item,i,j,this.heightArea,this.widthArea);
+							if(this.checkFlag)		// kiểm tra và set lại thuộc tính cờ cho từng ô 
+								item.opacity = 1;
+							else 
+								item.opacity = 0;
+						}
+					}
+				},
+				winner: function() {
+					this.player = playerList(this.player,this.playerName); // add người chơi vào mảng 
+					clearInterval(this.counterTime);	  // dừng thời gian chơi 
+					alert("you win");
+					this.player[10].point = this.counter; // gán điểm cho người chơi thứ 11
+					this.player = sort(this.player); 	  // sắp sếp mảng 
+					this.counter = 0;					  // reset biến thời gian 
+					this.numLevel +=1;
+				}
+				// nextLevel: function() {
+				// 	if(this.numLevel === 0){
+				// 		this.widthSave = 10;	
+				// 		this.heightSave=8;
+				// 		this.numberBoom = 10;
+				// 		// next level  
+				// 	}
+				// 	if(this.numLevel === 1){
+				// 		this.widthSave = 20;
+				// 		this.heightSave = 12;
+				// 		this.numberBoom = 30;
+				// 	}
+				// 	if(this.numLevel === 2){
+
+				// 		this.widthSave = 40;
+				// 		this.heightSave	 = 40;
+				// 		this.numberBoom = 200;
+				// 	}
+				// }
+				
+
+			}
+		});	
+
+
+		$(document).ready(function(){
+			$(".input-game").css({"position":"relative","opacity": 0, "bottom":"+=600"});
+ 			$(".input-game").animate({bottom:0, opacity:1},1000);
+ 			$(".rank").css({"position":"relative","opacity": 0, "right":"+=600"});
+ 			$(".rank").animate({right:0, opacity:1},1700);
+		})
+	</script>
+</body>
+</html>
